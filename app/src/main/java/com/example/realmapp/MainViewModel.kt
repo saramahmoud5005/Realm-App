@@ -1,5 +1,8 @@
 package com.example.realmapp
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.realmapp.models.Address
@@ -18,7 +21,15 @@ import kotlinx.coroutines.launch
 class MainViewModel: ViewModel() {
     private val realm = App.realm
 
-    val courses = realm.query<Course>()
+    val courses = realm.query<Course>(
+        //"enrolledStudents.name == $0",
+        //"John Junior"
+
+        //"enrolledStudents.@count >=2"
+
+        "teacher.address.fullName CONTAINS $0",
+        "John"
+    )
         .asFlow()
         .map { results ->
             results.list.toList()
@@ -28,9 +39,18 @@ class MainViewModel: ViewModel() {
             SharingStarted.WhileSubscribed(),
             emptyList()
         )
+    var courseDetails:Course? by mutableStateOf(null)
+        private set
 
     init {
         createSampleEntries()
+    }
+
+    fun showCourseDetails(course: Course){
+        courseDetails = course
+    }
+    fun hideCourseDetails(){
+        courseDetails = null
     }
     private fun createSampleEntries(){
         viewModelScope.launch {
@@ -43,18 +63,11 @@ class MainViewModel: ViewModel() {
                     city = "John city"
                 }
                 val address2 = Address().apply {
-                    fullName = "John Doe 2"
+                    fullName = "Jane Doe"
                     street = "John Doe Street 2"
                     houseNumber = 25
                     zip = 123456
                     city = "John city 2"
-                }
-                val address3 = Address().apply {
-                    fullName = "John Doe 3"
-                    street = "John Doe Street 3"
-                    houseNumber = 26
-                    zip = 1234567
-                    city = "John city 3"
                 }
 
                 val course1 = Course().apply {
@@ -104,6 +117,17 @@ class MainViewModel: ViewModel() {
                 copyToRealm(student1, updatePolicy = UpdatePolicy.ALL)
                 copyToRealm(student2, updatePolicy = UpdatePolicy.ALL)
 
+            }
+        }
+    }
+
+    fun deleteCourse() {
+        viewModelScope.launch {
+            realm.write {
+                val course = courseDetails?: return@write
+                val latestCourse = findLatest(course)?: return@write
+                delete(latestCourse)
+                courseDetails = null
             }
         }
     }
